@@ -1,0 +1,42 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    background-color: #f0f0f0;
+}
+
+h1 {
+    color: #333;
+}
+
+#game {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.player {
+    border: 1px solid #ccc;
+    background-color: #fff;
+    padding: 10px;
+    margin: 10px;
+    width: 300px;
+    text-align: center;
+}
+
+.coins {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}
+
+.cards img {
+    width: 100px;
+    height: auto;
+    margin: 5px;
+}
+
+button {
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 1em;
+    cursor: pointer;
+}
