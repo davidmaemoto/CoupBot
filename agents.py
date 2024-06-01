@@ -24,9 +24,9 @@ class Agent:
 
     def printAction(self, a, state):
         print
-        "Agent %d takes %s%s: %s" % (self.index, state.nextAction, \
+        "Agent %d takes %s%s: %s" % (self.index, state.nextActionType, \
                                      (' [--------BLUFF!!-------]' if str(a) in [str(act) for act in
-                                                                                state.bluffActions(
+                                                                                state.getBluffActions(
                                                                                     self.index)] else ''), str(a))
 
     def gameOver(self, state, winner):
@@ -36,10 +36,10 @@ class Agent:
 class TruthKeyboardAgent(Agent):
 
     def getAction(self, state):
-        actions = state.legalActions(self.index)
+        actions = state.getLegalActions(self.index)
         if len(actions) == 1:
             print
-            "Agent %d takes %s: %s" % (self.index, state.nextAction, str(actions[0]))
+            "Agent %d takes %s: %s" % (self.index, state.nextActionType, str(actions[0]))
             return actions[0]
         print
         '===========STATE BEGIN===========\n', state.detailedStr(), '\n===========STATE END============='
@@ -62,8 +62,8 @@ class TruthKeyboardAgent(Agent):
 class KeyboardAgent(Agent):
 
     def getAction(self, state):
-        legalActions = state.legalActions(self.index)
-        bluffActions = state.bluffActions(self.index)
+        legalActions = state.getLegalActions(self.index)
+        bluffActions = state.getBluffActions(self.index)
         if len(legalActions) == 1 and len(bluffActions) == 0:
             self.printAction(legalActions[0], state)
             return legalActions[0]
@@ -96,7 +96,7 @@ class KeyboardAgent(Agent):
 class RandomAgent(Agent):
 
     def getAction(self, state):
-        actions = state.legalActions(self.index)
+        actions = state.getLegalActions(self.index)
         a = random.choice(actions)
         self.printAction(a, state)
         return a
@@ -105,7 +105,7 @@ class RandomAgent(Agent):
 class RandomAgentExcludeChallenge(Agent):
 
     def getAction(self, state):
-        actions = state.legalActions(self.index)
+        actions = state.getLegalActions(self.index)
         actions = [x for x in actions if not isinstance(x, Challenge)]
         a = random.choice(actions)
         self.printAction(a, state)
@@ -115,7 +115,7 @@ class RandomAgentExcludeChallenge(Agent):
 class LyingRandomAgent(Agent):
 
     def getAction(self, state):
-        actions = state.actions(self.index)
+        actions = state.getAllActions(self.index)
         a = random.choice(actions)
         self.printAction(a, state)
         return a
@@ -124,7 +124,7 @@ class LyingRandomAgent(Agent):
 class LyingRandomAgentExcludeChallenge(Agent):
 
     def getAction(self, state):
-        actions = state.actions(self.index)
+        actions = state.getAllActions(self.index)
         actions = [x for x in actions if not isinstance(x, Challenge)]
         a = random.choice(actions)
         self.printAction(a, state)
@@ -143,7 +143,7 @@ class ReflexAgent(Agent):
         return ownInfluences - otherInfluences
 
     def getAction(self, state):
-        actionList = state.bluffActions(self.index)
+        actionList = state.getBluffActions(self.index)
         a = max([(self.evaluationFunction(state.generateSuccessors(a)), a) for a in actionList])[1]
         self.printAction(a, state)
         return a
@@ -159,7 +159,7 @@ class LyingKillAgent(Agent):
 
     def getAction(self, state):
         selfState = state.players[self.index]
-        actionList = state.actions(self.index)
+        actionList = state.getAllActions(self.index)
         random.shuffle(actionList)
         actionList = [x for x in actionList if x is None or x.type != 'challenge']
         a = self.findAction(actionList, 'block')
@@ -217,7 +217,7 @@ class LookaheadAgent(Agent):
             print
             s.playersCanAct
             for player in s.playersCanAct:
-                for action in s.actions(player):
+                for action in s.getAllActions(player):
                     # print 'THIS IS S', s.detailedStr()
                     newStates = s.generateSuccessorStates(action, player)
                     # print 'THIS IS NEWSTATES[0] at d=%d performing action %s' %(d, action), newStates[0].detailedStr()
@@ -247,7 +247,7 @@ class ExpectimaxAgent(Agent):
         return score
 
     def getActions(self, player, s):
-        return s.actions(player) if player != self.index else s.legalActions(player)
+        return s.getAllActions(player) if player != self.index else s.getLegalActions(player)
 
     def findProbability(self, state, successorState):
         requiredInfluences = state.requiredInfluencesForState(successorState)
@@ -293,7 +293,7 @@ class ExpectimaxAgent(Agent):
 class LyingExpectimaxAgent(ExpectimaxAgent):
 
     def getActions(self, player, s):
-        return s.actions(player)
+        return s.getAllActions(player)
 
 
 class BraveLyingExpectimaxAgent(LyingExpectimaxAgent):
@@ -384,7 +384,7 @@ class TDLearningAgent(ExpectimaxAgent):
             # self.weights[feature] = currentWeight - (constant * self.lastFeatureVector[feature])
 
     def getAction(self, state):
-        if state.playerTurn == self.index and state.lastAction == None:
+        if state.playerTurn == self.index and state.currentAction == None:
             self.updateW(state, 0)
             v, a = self.vopt(state.deepCopy(), 3)
             self.lastV = v
@@ -404,10 +404,12 @@ class TDLearningAgent(ExpectimaxAgent):
         historyFile.write(jsonWeights + '\n')
         outputFile.close()
         historyFile.close()
-        print(self.weights)
+        print
+        self.weights
+
 
 class TDLearningAgentExcludeChallenge(TDLearningAgent):
 
     def getActions(self, player, s):
-        return s.actions(player) if player != self.index else [a for a in s.legalActions(player) if
+        return s.getAllActions(player) if player != self.index else [a for a in s.getLegalActions(player) if
                                                                      not isinstance(a, Challenge)]
