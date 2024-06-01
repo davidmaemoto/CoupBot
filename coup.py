@@ -47,7 +47,7 @@ Runs the matchups between the different agents for a set number of games.
 def runMatchups(numGames):
     signal.signal(signal.SIGALRM, signal_handler)
     algorithms = ['expectimax', 'random']
-    algorithmsToAgents = {'qlearning': TDLearningAgent, 'expectimax': ExpectimaxAgent, 'random': RandomAgent}
+    algorithmsToAgents = {'qlearning': TDLearningAgent, 'expectimax': ExpectimaxAgent, 'random': BogoAgent}
     agents0, agents1, agents2 = {}, {}, {}
     for algorithm in algorithms:
         agents0[algorithm] = algorithmsToAgents[algorithm](0)

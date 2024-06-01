@@ -24,9 +24,9 @@ class Agent:
 
     def printAction(self, a, state):
         print
-        "Agent %d takes %s%s: %s" % (self.index, state.nextActionType, \
+        "Agent %d takes %s%s: %s" % (self.index, state.nextAction, \
                                      (' [--------BLUFF!!-------]' if str(a) in [str(act) for act in
-                                                                                state.getBluffActions(
+                                                                                state.bluffActions(
                                                                                     self.index)] else ''), str(a))
 
     def gameOver(self, state, winner):
@@ -36,10 +36,10 @@ class Agent:
 class TruthKeyboardAgent(Agent):
 
     def getAction(self, state):
-        actions = state.getLegalActions(self.index)
+        actions = state.legalActions(self.index)
         if len(actions) == 1:
             print
-            "Agent %d takes %s: %s" % (self.index, state.nextActionType, str(actions[0]))
+            "Agent %d takes %s: %s" % (self.index, state.nextAction, str(actions[0]))
             return actions[0]
         print
         '===========STATE BEGIN===========\n', state.detailedStr(), '\n===========STATE END============='
@@ -59,8 +59,8 @@ class TruthKeyboardAgent(Agent):
 class KeyboardAgent(Agent):
 
     def getAction(self, state):
-        legalActions = state.getLegalActions(self.index)
-        bluffActions = state.getBluffActions(self.index)
+        legalActions = state.legalActions(self.index)
+        bluffActions = state.bluffActions(self.index)
         if len(legalActions) == 1 and len(bluffActions) == 0:
             self.printAction(legalActions[0], state)
             return legalActions[0]
@@ -93,7 +93,7 @@ class KeyboardAgent(Agent):
 class TruthAgent(Agent):
 
     def getAction(self, state):
-        actions = state.getLegalActions(self.index)
+        actions = state.legalActions(self.index)
         a = random.choice(actions)
         self.printAction(a, state)
         return a
@@ -102,7 +102,7 @@ class TruthAgent(Agent):
 class TruthAgentNoChallenge(Agent):
 
     def getAction(self, state):
-        actions = state.getLegalActions(self.index)
+        actions = state.legalActions(self.index)
         actions = [x for x in actions if not isinstance(x, Challenge)]
         a = random.choice(actions)
         self.printAction(a, state)
@@ -112,7 +112,7 @@ class TruthAgentNoChallenge(Agent):
 class BogoAgent(Agent):
 
     def getAction(self, state):
-        actions = state.getAllActions(self.index)
+        actions = state.actions(self.index)
         a = random.choice(actions)
         self.printAction(a, state)
         return a
@@ -121,7 +121,7 @@ class BogoAgent(Agent):
 class BogoAgentNoChallenge(Agent):
 
     def getAction(self, state):
-        actions = state.getAllActions(self.index)
+        actions = state.actions(self.index)
         actions = [x for x in actions if not isinstance(x, Challenge)]
         a = random.choice(actions)
         self.printAction(a, state)
@@ -138,7 +138,7 @@ class KillAgent(Agent):
 
     def getAction(self, state):
         selfState = state.players[self.index]
-        actionList = state.getAllActions(self.index)
+        actionList = state.actions(self.index)
         random.shuffle(actionList)
         actionList = [x for x in actionList if x is None or x.type != 'challenge']
         a = self.findAction(actionList, 'block')
@@ -180,7 +180,7 @@ class ExpectimaxAgent(Agent):
         return score
 
     def getActions(self, player, s):
-        return s.getAllActions(player) if player != self.index else s.getLegalActions(player)
+        return s.actions(player) if player != self.index else s.legalActions(player)
 
     def findProbability(self, state, successorState):
         requiredInfluences = state.requiredInfluencesForState(successorState)

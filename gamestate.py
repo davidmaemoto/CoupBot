@@ -75,7 +75,7 @@ class GameState:
 
     def _getActionLegalActions(self, playerIndex, playerState):
         if self.playerTurn != playerIndex:
-            return ['income']
+            return []
 
         otherPlayers = [x.playerIndex for x in self.players if len(x.influences) > 0 and x.playerIndex != playerIndex]
         result = ['income', 'foreign aid']
