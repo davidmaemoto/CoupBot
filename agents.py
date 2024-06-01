@@ -20,7 +20,7 @@ class Agent:
         The Agent will receive a GameState (from either {pacman, capture, sonar}.py) and
         must return an action from Directions.{North, South, East, West, Stop}
         """
-        raiseNotDefined()
+        NotImplementedError()
 
     def printAction(self, a, state):
         print
@@ -44,19 +44,16 @@ class TruthKeyboardAgent(Agent):
         print
         '===========STATE BEGIN===========\n', state.detailedStr(), '\n===========STATE END============='
         while True:
-            print
-            'Please enter the number of action from the following list: '
+            print('Please enter the number of action from the following list: ')
             for i, a in enumerate(actions):
-                print
-                '(%d): %s' % (i + 1, str(a))
+                print('(%d): %s' % (i + 1, str(a)))
             try:
-                action = int(raw_input())
+                action = int(input())
                 if action <= len(actions):
                     self.printAction(actions[action - 1], state)
                     return actions[action - 1]
             except:
-                print
-                'Invalid number, try again...'
+                print('Invalid number, try again...')
 
 
 class KeyboardAgent(Agent):
@@ -79,7 +76,7 @@ class KeyboardAgent(Agent):
                 print
                 '(%d): %s%s' % (i + 1, ('[Bluff] ' if i >= len(legalActions) else ''), str(a))
             try:
-                action = int(raw_input())
+                action = int(input())
                 if action <= len(legalActions):
                     output = legalActions[action - 1]
                     self.printAction(output, state)
@@ -93,7 +90,7 @@ class KeyboardAgent(Agent):
                 'Invalid number, try again...'
 
 
-class RandomAgent(Agent):
+class TruthAgent(Agent):
 
     def getAction(self, state):
         actions = state.getLegalActions(self.index)
@@ -102,7 +99,7 @@ class RandomAgent(Agent):
         return a
 
 
-class RandomAgentExcludeChallenge(Agent):
+class TruthAgentNoChallenge(Agent):
 
     def getAction(self, state):
         actions = state.getLegalActions(self.index)
@@ -112,7 +109,7 @@ class RandomAgentExcludeChallenge(Agent):
         return a
 
 
-class LyingRandomAgent(Agent):
+class BogoAgent(Agent):
 
     def getAction(self, state):
         actions = state.getAllActions(self.index)
@@ -121,7 +118,7 @@ class LyingRandomAgent(Agent):
         return a
 
 
-class LyingRandomAgentExcludeChallenge(Agent):
+class BogoAgentNoChallenge(Agent):
 
     def getAction(self, state):
         actions = state.getAllActions(self.index)
@@ -131,25 +128,7 @@ class LyingRandomAgentExcludeChallenge(Agent):
         return a
 
 
-class ReflexAgent(Agent):
-
-    def evaluationFunction(self, state):
-        selfState = state.players[self.index]
-        otherStates = [x for x in state.players if x.playerIndex != self.index]
-
-        ownInfluences = len(selfState.influences)
-        otherInfluences = sum([len(x.influences) for x in otherStates])
-
-        return ownInfluences - otherInfluences
-
-    def getAction(self, state):
-        actionList = state.getBluffActions(self.index)
-        a = max([(self.evaluationFunction(state.generateSuccessors(a)), a) for a in actionList])[1]
-        self.printAction(a, state)
-        return a
-
-
-class LyingKillAgent(Agent):
+class KillAgent(Agent):
 
     def findAction(self, actionList, query):
         for action in actionList:
@@ -183,52 +162,6 @@ class LyingKillAgent(Agent):
             self.printAction(a, state)
             return a
         a = random.choice(actionList)
-        self.printAction(a, state)
-        return a
-
-
-class LookaheadAgent(Agent):
-
-    def evaluationFunction(self, state):
-        score = 0
-        playerState = state.players[self.index]
-        score += len(playerState.influences) * 100
-        score += playerState.coins
-        for i, p in enumerate(state.players):
-            if i != self.index:
-                score -= 10 * len(p.influences)
-        score += sum([-100 if x == self.index else +10 for x in state.punishedPlayers])
-        print
-        'score', score
-        return score
-
-    def getAction(self, state):
-
-        def vopt(s, d):
-            if s.isOver():
-                return 10000, [None]
-            print
-            'vopt called: depth %d' % d
-            if d == 0:
-                print
-                s.detailedStr()
-                return self.evaluationFunction(s), None
-            possibleActions = []
-            print
-            s.playersCanAct
-            for player in s.playersCanAct:
-                for action in s.getAllActions(player):
-                    # print 'THIS IS S', s.detailedStr()
-                    newStates = s.generateSuccessorStates(action, player)
-                    # print 'THIS IS NEWSTATES[0] at d=%d performing action %s' %(d, action), newStates[0].detailedStr()
-                    # print 'Player %d has %d states from action %s' % (player, len(newStates), action)
-                    for successorState in newStates:
-                        print
-                        'calling vopt from depth %d' % d
-                        possibleActions.append((vopt(successorState, d - 1)[0], action))
-            return max(possibleActions)
-
-        v, a = vopt(state.deepCopy(), 5)
         self.printAction(a, state)
         return a
 
@@ -288,44 +221,6 @@ class ExpectimaxAgent(Agent):
         v, a = self.vopt(state.deepCopy(), 3)
         self.printAction(a, state)
         return a
-
-
-class LyingExpectimaxAgent(ExpectimaxAgent):
-
-    def getActions(self, player, s):
-        return s.getAllActions(player)
-
-
-class BraveLyingExpectimaxAgent(LyingExpectimaxAgent):
-
-    def findProbability(self, state, successorState):
-        probability = LyingExpectimaxAgent.findProbability(self, state, successorState)
-        if successorState.challengeSuccess and (successorState.playerBlock == self.index or \
-                                                successorState.playerTurn == self.index and successorState.playerBlock is None):
-            probability = 0
-        return probability
-
-
-# won 87/100 games against 2 LyingRandomAgentNoChallenge agents.
-class OracleExpectimaxAgent(ExpectimaxAgent):
-
-    def findProbability(self, state, successorState):
-        requiredInfluences = state.requiredInfluencesForState(successorState)
-        probability = 1
-        for p in requiredInfluences:
-            if p == self.index:
-                influenceList, hasInfluence = requiredInfluences[p]
-                hasAny = False
-                selfInfluences = state.players[p].influences
-                for influence in influenceList:
-                    if influence in selfInfluences:
-                        hasAny = True
-                if hasInfluence:
-                    probability = 1 if hasAny else 0
-                else:
-                    probability = 0 if hasAny else 1
-        return probability
-
 
 class TDLearningAgent(ExpectimaxAgent):
 
@@ -406,10 +301,3 @@ class TDLearningAgent(ExpectimaxAgent):
         historyFile.close()
         print
         self.weights
-
-
-class TDLearningAgentExcludeChallenge(TDLearningAgent):
-
-    def getActions(self, player, s):
-        return s.getAllActions(player) if player != self.index else [a for a in s.getLegalActions(player) if
-                                                                     not isinstance(a, Challenge)]
