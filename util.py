@@ -6,17 +6,16 @@ influenceToAction = {
 	'ambassador': 'exchange',
 	'assassin': 'assassinate',
 	'captain' : 'steal',
-	'duke': 'tax'
+	'duke': 'tax',
+	'contessa': None
 }
 
-#actionToInfluence
 actionToInfluence = {
 	'exchange': ['ambassador'],
 	'assassinate': ['assassin'],
 	'steal': ['captain'],
 	'tax': ['duke']
 }
-#blockToInfluence
 
 blockToInfluence = {
 	'steal': ['ambassador', 'captain'],
@@ -25,10 +24,10 @@ blockToInfluence = {
 }
 
 influenceToBlock = {
-	'ambassador' : 'steal',
-	'captain' : 'steal',
-	'contessa' : 'assassinate',
-	'duke:' : 'foreign aid'
+	'ambassador': 'steal',
+	'captain': 'steal',
+	'contessa': 'assassinate',
+	'duke:': 'foreign aid'
 }
 
 actionToReaction = {
@@ -49,28 +48,20 @@ specialActions = ['steal', 'assassinate', 'exchange', 'tax']
 blocks = ['steal', 'assassinate', 'foreign aid']
 
 def ActionGenerator(actionList, playerIndex=0, otherPlayers=[], numInfluences=0):
+	actionDict = {
+		'income': [Income()],
+		'foreign aid': [ForeignAid()],
+		'coup': [Coup(x) for x in otherPlayers],
+		'block': [Block(playerIndex)],
+		'challenge': [Challenge(playerIndex)],
+		'tax': [Tax()],
+		'assassinate': [Assassinate(x) for x in otherPlayers],
+		'exchange': [Exchange()],
+		'steal': [Steal(x) for x in otherPlayers],
+		'discard': [Discard(playerIndex, x) for x in range(numInfluences)]
+	}
 	result = []
-	actionSet = set(actionList)
-	for action in actionSet:
-		if action == 'income':
-			result += [Income()]
-		elif action == 'foreign aid':
-			result += [ForeignAid()]
-		elif action == 'coup':
-			result += [Coup(x) for x in otherPlayers]
-		elif action == 'block':
-			result += [Block(playerIndex)]
-		elif action == 'challenge':
-			result += [Challenge(playerIndex)]
-		elif action == 'tax':
-			result += [Tax()]
-		elif action == 'assassinate':
-			result += [Assassinate(x) for x in otherPlayers]
-		elif action == 'exchange':
-			result += [Exchange()]
-		elif action == 'steal':
-			result += [Steal(x) for x in otherPlayers]
-		elif action == 'discard':
-			result += [Discard(playerIndex, x) for x in range(numInfluences)]
+	for action in set(actionList):
+		result += actionDict[action]
 	return result
 

@@ -7,61 +7,36 @@ import copy
 
 class GameState:
 
-    def __init__(self, prevState=None):
+    def __init__(self, numPlayers=3):
         """
         Generates a new state by copying information from its predecessor.
         """
-        if prevState is None:
-            self.players = []
-            self.numPlayers = 0
-            self.playerTurn = 0
-            self.currentAction = None
-            self.playerExchange = None
-            self.playerChallenge = None
-            self.playerBlock = None
-            self.playerTarget = None
-            self.punishedPlayers = []
-            self.deck = []
-            self.inactiveInfluences = collections.Counter()
-            self.pastActions = []  # list of counters, one for each player
-            self.nextActionType = None  # can be 'action', 'block', 'challenge', 'discard'
-            self.challengeSuccess = None
-            self.blockPhaseOccured = False
-            self.actionStack = []
-            self.playersCanAct = []
-        else:
-            self.players = list(prevState.players)
-            self.numPlayers = prevState.numPlayers
-            self.playerTurn = prevState.playerTurn
-            self.currentAction = prevState.currentAction
-            self.playerExchange = prevState.playerExchange
-            self.playerChallenge = prevState.playerChallenge
-            self.playerBlock = prevState.playerBlock
-            self.playerTarget = prevState.playerTarget
-            self.punishedPlayers = list(prevState.punishedPlayers)
-            self.deck = list(prevState.deck)
-            self.inactiveInfluences = collections.Counter(prevState.inactiveInfluences)
-            self.pastActions = list(prevState.pastActions)
-            self.nextActionType = prevState.nextActionType
-            self.challengeSuccess = prevState.challengeSuccess
-            self.actionStack = list(prevState.actionStack)
-            self.playersCanAct = list(prevState.playersCanAct)
-            self.blockPhaseOccured = prevState.blockPhaseOccured
-
-    def __eq__(self, other):
-        """
-        Allows two states to be compared.
-        """
-
-    # def __hash__( self ):
-    #   """
-    #   Allows states to be keys of dictionaries.
-    #   """
+        if numPlayers > 10:
+            raise ValueError('Cannot have more than 10 players')
+        self.players = []
+        self.numPlayers = numPlayers
+        self.playerTurn = random.randint(0, self.numPlayers - 1)
+        self.lastAction = None
+        self.playerExchange = None
+        self.playerChallenge = None
+        self.playerBlock = None
+        self.playerTarget = None
+        self.punishedPlayers = []
+        self.deck = ['ambassador', 'assassin', 'captain', 'contessa', 'duke'] * (3 if self.numPlayers >= 6 else 2)
+        random.shuffle(self.deck)
+        for i in range(numPlayers):
+            s = PlayerState(i, [self.deck.pop(), self.deck.pop()])
+            self.players.append(s)
+        self.inactiveInfluences = collections.Counter()
+        self.nextAction = 'action'
+        self.challengeSuccess = None
+        self.blockPhaseOccurred = False
+        self.actionStack = []
+        self.playersCanAct = [self.playerTurn]
 
     def __str__(self):
         return """
       Players: %r
-      Number Players: %r
       Player Turn: %r
       Current Action: %r
       Next Action Type: %r
@@ -71,23 +46,21 @@ class GameState:
       Player Target: %r
       Player Exchange: %r
       Punished Players: %r
-      Past Actions: %r
       Deck: %r
-      Inactive Influences: %r
-    """ % ([str(player) for player in self.players], self.numPlayers, self.playerTurn, self.currentAction, \
-           self.nextActionType, self.playerBlock, self.playerChallenge, self.challengeSuccess, self.playerTarget, \
-           self.playerExchange, self.punishedPlayers, self.pastActions, self.deck, self.inactiveInfluences)
+      Discarded Influences: %r
+    """ % ([str(player) for player in self.players], self.playerTurn, self.lastAction,
+           self.nextAction, self.playerBlock, self.playerChallenge, self.challengeSuccess, self.playerTarget,
+           self.playerExchange, self.punishedPlayers, self.deck, self.inactiveInfluences)
 
     def detailedStr(self):
         out = str(self)
         out += """
-      Challenge Success: %r
-      Block Phase Occured: %r
+      Block Phase Occurred: %r
       Players: 
-      """ % (self.challengeSuccess, self.blockPhaseOccured)
+      """ % (self.blockPhaseOccurred)
         for p in self.players:
             out += '\n\t%s\n\t\tInactive Influences: %s\n\t\tRevealed Influences: %s\n\t\tPossible Influences: %s' % (
-            p, p.inactiveInfluences, p.revealedInfluences, p.possibleInfluences)
+                p, p.inactiveInfluences, p.revealedInfluences, p.possibleInfluences)
         out += '\n\tAction Stack:'
         for a in self.actionStack:
             out += '\n\t\t%s' % a
@@ -95,74 +68,69 @@ class GameState:
         out += '\n\tPossible actions for each player:'
         for p in range(len(self.players)):
             astring = ''
-            for a in self.getAllActions(p):
+            for a in self.actions(p):
                 astring += '\n\t\t\t%s' % a
             out += '\n\t\t%d: %s' % (p, astring)
         return out
 
-    def initialize(self, numPlayers=4):
-        """
-        Creates an initial game state given a number of players.
-        """
-        self.numPlayers = numPlayers
-        self.deck = ['ambassador', 'assassin', 'captain', 'contessa', 'duke'] * 3
-        random.shuffle(self.deck)
-        for i in range(numPlayers):
-            nextInfluences = self.deck[0:2]
-            self.deck = self.deck[2:]
-            s = PlayerState(i, nextInfluences)  # initalizes player state with index number and two cards to have
-            self.players.append(s)
-        self.playerTurn = random.randint(0, self.numPlayers - 1)
-        self.playersCanAct.append(self.playerTurn)
-        self.nextActionType = 'action'
+    def _getActionLegalActions(self, playerIndex, playerState):
+        if self.playerTurn != playerIndex:
+            return ['income']
 
-    def getLegalActions(self, playerIndex=0):
+        otherPlayers = [x.playerIndex for x in self.players if len(x.influences) > 0 and x.playerIndex != playerIndex]
+        result = ['income', 'foreign aid']
+
+        if playerState.coins >= 10:
+            return util.ActionGenerator(['coup'], playerIndex=playerIndex, otherPlayers=otherPlayers)
+        if playerState.coins >= 7:
+            result.append('coup')
+
+        for influence in playerState.influences:
+            if influence in util.influenceToAction:
+                if influence != 'assassin' or playerState.coins >= 3:
+                    result.append(util.influenceToAction[influence])
+
+        return util.ActionGenerator(result, playerIndex=playerIndex, otherPlayers=otherPlayers)
+
+    def _getBlockLegalActions(self, playerIndex, playerState):
+        if self.playerTurn == playerIndex:
+            return [None]
+        if self.lastAction == 'foreign aid' or (
+                self.lastAction in ['steal', 'assassinate'] and playerIndex == self.playerTarget):
+            for influence in playerState.influences:
+                if (self.lastAction in util.blockToInfluence and
+                        influence in util.blockToInfluence[self.lastAction]):
+                    return util.ActionGenerator(['block'], playerIndex=playerIndex) + [None]
+        return [None]
+
+    def _getChallengeLegalActions(self, playerIndex):
+        if self.lastAction not in util.basicActions and (
+                (self.playerBlock is not None and playerIndex != self.playerBlock) or
+                (self.playerBlock is None and playerIndex != self.playerTurn)):
+            return util.ActionGenerator(['challenge'], playerIndex=playerIndex) + [None]
+
+        return [None]
+
+
+    def legalActions(self, playerIndex=0):
         playerState = self.players[playerIndex]
         if len(playerState.influences) == 0:
             return [None]
-        if self.nextActionType == 'action':
-            indexList = [x.playerIndex for x in self.players if len(x.influences) > 0 and x.playerIndex != playerIndex]
-            if self.playerTurn != playerIndex:
-                return []
-            result = ['income', 'foreign aid']
-            if playerState.coins >= 10:
-                return util.ActionGenerator(['coup'], playerIndex=playerIndex, otherPlayers=indexList)
-            if playerState.coins >= 7:
-                result += ['coup']
-            # now, we look at Influences
-            for influence in playerState.influences:
-                if influence in util.influenceToAction:
-                    if influence != 'assassin' or playerState.coins >= 3:
-                        result.append(util.influenceToAction[influence])
-            return util.ActionGenerator(result, playerIndex=playerIndex, otherPlayers=indexList)
-        elif self.nextActionType == 'block':
-            # if the action is steal or assassination, then only the target can block
-            # if action is foreign aid, anyone can block
-            if self.playerTurn == playerIndex:
-                return [None]
-            if self.currentAction == 'foreign aid' or (
-                    self.currentAction in ['steal', 'assassinate'] and playerIndex == self.playerTarget):
-                for influence in playerState.influences:
-                    if self.currentAction in util.blockToInfluence and influence in util.blockToInfluence[
-                        self.currentAction]:
-                        return util.ActionGenerator(['block'], playerIndex=playerIndex) + [None]
-            return [None]
-        elif self.nextActionType == 'challenge':
-            if self.currentAction not in util.basicActions and (
-                    (self.playerBlock is not None and playerIndex != self.playerBlock) \
-                    or (self.playerBlock is None and playerIndex != self.playerTurn)):
-                return util.ActionGenerator(['challenge'], playerIndex=playerIndex) + [None]
-            else:
-                return [None]
-        elif self.nextActionType == 'discard':
+        if self.nextAction == 'action':
+            return self._getActionLegalActions(playerIndex, playerState)
+        elif self.nextAction == 'block':
+            return self._getBlockLegalActions(playerIndex, playerState)
+        elif self.nextAction == 'challenge':
+            return self._getChallengeLegalActions(playerIndex)
+        elif self.nextAction == 'discard':
             return util.ActionGenerator(['discard'], playerIndex=playerIndex,
                                         numInfluences=len(self.players[playerIndex].influences))
 
-    def getBluffActions(self, playerIndex=0):
+    def bluffActions(self, playerIndex=0):
         playerState = self.players[playerIndex]
         if len(playerState.influences) == 0:
             return []
-        if self.nextActionType == 'action':
+        if self.nextAction == 'action':
             indexList = [x.playerIndex for x in self.players if len(x.influences) > 0 and x.playerIndex != playerIndex]
             if self.playerTurn != playerIndex:
                 return []
@@ -175,58 +143,52 @@ class GameState:
                         if influence != 'assassin' or playerState.coins >= 3:
                             result.append(util.influenceToAction[influence])
             return util.ActionGenerator(result, playerIndex=playerIndex, otherPlayers=indexList)
-        elif self.nextActionType == 'block':
+        elif self.nextAction == 'block':
             if self.playerTurn == playerIndex:
                 return []
-            if self.currentAction == 'foreign aid' or (
-                    self.currentAction in ['steal', 'assassinate'] and playerIndex == self.playerTarget):
+            if self.lastAction == 'foreign aid' or (
+                    self.lastAction in ['steal', 'assassinate'] and playerIndex == self.playerTarget):
                 canBlock = False
                 for influence in util.influenceList:
-                    if influence in util.blockToInfluence[self.currentAction] and influence in playerState.influences:
+                    if influence in util.blockToInfluence[self.lastAction] and influence in playerState.influences:
                         canBlock = True
                 if canBlock:
                     return []
                 else:
                     return util.ActionGenerator(['block'], playerIndex=playerIndex)
-            else:
-                return []
-        elif self.nextActionType == 'challenge':
-            return []
-        elif self.nextActionType == 'discard':
-            return []
+        return []
 
-    def getAllActions(self, playerIndex):  # be less hacky
-        return self.getLegalActions(playerIndex) + self.getBluffActions(playerIndex)
+    def actions(self, playerIndex):
+        return self.legalActions(playerIndex) + self.bluffActions(playerIndex)
 
     def continueTurn(self):
         nextState = self.deepCopy()
-        # print 'nextState:', nextState
-        if self.nextActionType == 'discard':
+        if self.nextAction == 'discard':
             nextState = nextState.resolveActions()
             nextState.punishedPlayers = [x for x in nextState.punishedPlayers if
                                          len(nextState.players[x].influences) > 0]
             nextState.playersCanAct = list(set(nextState.punishedPlayers))
             if len(nextState.punishedPlayers) == 0:
                 nextState = nextState.finishTurn()
-        elif self.nextActionType == 'challenge':
+        elif self.nextAction == 'challenge':
             if self.playerChallenge is not None:
                 nextState = nextState.resolveTopAction()
-            if not self.blockPhaseOccured and not self.challengeSuccess:
-                nextState.blockPhaseOccured = True
-                nextState.nextActionType = 'block'
+            if not self.blockPhaseOccurred and not self.challengeSuccess:
+                nextState.blockPhaseOccurred = True
+                nextState.nextAction = 'block'
                 nextState.playersCanAct = [p for p in range(nextState.numPlayers) if
                                            len(nextState.players[p].influences) != 0 and p != nextState.playerTurn]
                 # if nextState.currentAction not in util.blocks else []
             else:
                 nextState = nextState.resolveActions()
-                nextState.nextActionType = 'discard'
+                nextState.nextAction = 'discard'
                 nextState.playersCanAct = list(set(nextState.punishedPlayers))
-        elif self.nextActionType == 'block' and self.blockPhaseOccured == True:
+        elif self.nextAction == 'block' and self.blockPhaseOccurred == True:
             nextState = nextState.resolveActions()
-            nextState.nextActionType = 'discard'
+            nextState.nextAction = 'discard'
             nextState.playersCanAct = list(set(nextState.punishedPlayers))
-        elif self.nextActionType == 'block' or self.nextActionType == 'action':
-            nextState.nextActionType = 'challenge'
+        elif self.nextAction == 'block' or self.nextAction == 'action':
+            nextState.nextAction = 'challenge'
             nextState.playersCanAct = [p for p in range(nextState.numPlayers) if
                                        len(nextState.players[p].influences) != 0 and p != nextState.playerTurn]
             # if nextState.currentAction not in util.basicActions else []
@@ -249,15 +211,15 @@ class GameState:
 
     def finishTurn(self):
         nextState = self.deepCopy()
-        nextState.nextActionType = 'action'
-        nextState.currentAction = None
+        nextState.nextAction = 'action'
+        nextState.lastAction = None
         nextState.playerChallenge = None
         nextState.playerBlock = None
         nextState.playerTarget = None
         nextState.playerExchange = None
         nextState.punishedPlayers = []
         nextState.challengeSuccess = None
-        nextState.blockPhaseOccured = False
+        nextState.blockPhaseOccurred = False
         while True:
             nextState.playerTurn = (nextState.playerTurn + 1) % nextState.numPlayers
             if len(nextState.players[nextState.playerTurn].influences) > 0:
@@ -272,23 +234,23 @@ class GameState:
     #     if not hasInfluence: Player must not have any influences in list
     def requiredInfluencesForState(self, nextState):
         requiredInfluences = {}
-        if self.nextActionType == 'action':
-            requiredInfluences[self.playerTurn] = (util.actionToInfluence[nextState.currentAction],
-                                                   True) if nextState.currentAction in util.actionToInfluence else (
-            [], True)
-        elif self.nextActionType == 'block' and nextState.playerBlock is not None:
+        if self.nextAction == 'action':
+            requiredInfluences[self.playerTurn] = (util.actionToInfluence[nextState.lastAction],
+                                                   True) if nextState.lastAction in util.actionToInfluence else (
+                [], True)
+        elif self.nextAction == 'block' and nextState.playerBlock is not None:
             requiredInfluences[nextState.playerBlock] = (
-            util.blockToInfluence[self.currentAction], True) if self.currentAction in util.blockToInfluence else (
-            [], True)
-        elif self.nextActionType == 'challenge' and nextState.playerChallenge is not None:
+                util.blockToInfluence[self.lastAction], True) if self.lastAction in util.blockToInfluence else (
+                [], True)
+        elif self.nextAction == 'challenge' and nextState.playerChallenge is not None:
             if self.playerBlock == None:
-                requiredInfluences[self.playerTurn] = (util.actionToInfluence[self.currentAction],
-                                                       not nextState.challengeSuccess) if self.currentAction in util.actionToInfluence else (
-                [], False)
+                requiredInfluences[self.playerTurn] = (util.actionToInfluence[self.lastAction],
+                                                       not nextState.challengeSuccess) if self.lastAction in util.actionToInfluence else (
+                    [], False)
             else:
-                requiredInfluences[self.playerBlock] = (util.blockToInfluence[self.currentAction],
-                                                        not nextState.challengeSuccess) if self.currentAction in util.blockToInfluence else (
-                [], False)
+                requiredInfluences[self.playerBlock] = (util.blockToInfluence[self.lastAction],
+                                                        not nextState.challengeSuccess) if self.lastAction in util.blockToInfluence else (
+                    [], False)
         return requiredInfluences
 
     def isOver(self):
@@ -299,20 +261,18 @@ class GameState:
         print(self)
 
     def deepCopy(self):
-        # return GameState(self)
         return copy.deepcopy(self)
 
-    def generateSuccessorStates(self, action, playerIndex):
+    def generateSuccessorStates(self, action, playerIndex=0):
         if action is None:
             newState = self.deepCopy()
             newState = newState.continueTurn()
             return [newState]
-        if self.nextActionType == 'challenge':
+        if self.nextAction == 'challenge':
             successState = self.deepCopy()
             successState = action.choose(successState)
             successState.actionStack[-1].challengeSuccess = True
             successState = successState.continueTurn()
-            failState = self.deepCopy()
             failState = action.choose(successState)
             failState.actionStack[-1].challengeSuccess = False
             failState = failState.continueTurn()
@@ -325,11 +285,14 @@ class GameState:
             return [newState]
 
 
-class PlayerState:
-    """
-    PlayerStates hold the state of a player (index, Influences etc).
-    """
+"""
+PlayerState holds the information needed for each of the players in the game.
+For example, their player index, their influences (what they have and what they 
+could bluff), their coins, etc.
+"""
 
+
+class PlayerState:
     def __init__(self, index, influences):
         self.playerIndex = index
         self.influences = influences
@@ -340,10 +303,3 @@ class PlayerState:
 
     def __str__(self):
         return str(self.playerIndex) + ': ' + str(self.influences) + ' (%d coins)' % self.coins
-
-    # def __eq__( self, other ):
-
-    # def __hash__(self):
-
-    # def copy( self ):
-

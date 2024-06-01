@@ -27,13 +27,13 @@ class Challenge(Action):
         actionIsBlock = gameState.playerBlock is not None
         lastPlayer = gameState.playerBlock if actionIsBlock else gameState.playerTurn
         if not actionIsBlock:
-            influences = util.actionToInfluence[gameState.currentAction]  # Influence is a list
+            influences = util.actionToInfluence[gameState.lastAction]  # Influence is a list
             # want to see if playerTurn has that Influence
             result = any([True for x in influences if x in gameState.players[gameState.playerTurn].influences])
             self.punishedPlayer = self.playerChallenge if result else gameState.playerTurn
             self.challengeSuccess = not result
         else:
-            influences = util.blockToInfluence[gameState.currentAction]  # Influence is a list
+            influences = util.blockToInfluence[gameState.lastAction]  # Influence is a list
             # want to see if playerTurn has that Influence
             result = any([True for x in influences if x in gameState.players[gameState.playerBlock].influences])
             self.punishedPlayer = self.playerChallenge if result else gameState.playerBlock
@@ -59,7 +59,7 @@ class Tax(Action):
 
     def choose(self, state):
         gameState = state.deepCopy()
-        gameState.currentAction = 'tax'
+        gameState.lastAction = 'tax'
         gameState.actionStack.append(self)
         gameState.players[gameState.playerTurn].possibleInfluences['duke'] += 1
         return gameState
@@ -82,7 +82,7 @@ class Assassinate(Action):
 
     def choose(self, state):
         gameState = state.deepCopy()
-        gameState.currentAction = 'assassinate'
+        gameState.lastAction = 'assassinate'
         gameState.actionStack.append(self)
         gameState.players[gameState.playerTurn].possibleInfluences['assassin'] += 1
         gameState.players[gameState.playerTurn].coins -= 3
@@ -105,7 +105,7 @@ class Exchange(Action):
 
     def choose(self, state):
         gameState = state.deepCopy()
-        gameState.currentAction = 'exchange'
+        gameState.lastAction = 'exchange'
         gameState.actionStack.append(self)
         gameState.players[gameState.playerTurn].possibleInfluences['ambassador'] += 1
         return gameState
@@ -131,7 +131,7 @@ class Steal(Action):
 
     def choose(self, state):
         gameState = state.deepCopy()
-        gameState.currentAction = 'steal'
+        gameState.lastAction = 'steal'
         gameState.actionStack.append(self)
         gameState.players[gameState.playerTurn].possibleInfluences['captain'] += 1
         gameState.playerTarget = self.target
@@ -155,7 +155,7 @@ class Income(Action):
 
     def choose(self, state):
         gameState = state.deepCopy()
-        gameState.currentAction = 'income'
+        gameState.lastAction = 'income'
         gameState.actionStack.append(self)
         return gameState
 
@@ -176,7 +176,7 @@ class ForeignAid(Action):
 
     def choose(self, state):
         gameState = state.deepCopy()
-        gameState.currentAction = 'foreign aid'
+        gameState.lastAction = 'foreign aid'
         gameState.actionStack.append(self)
         return gameState
 
@@ -198,7 +198,7 @@ class Coup(Action):
 
     def choose(self, state):
         gameState = state.deepCopy()
-        gameState.currentAction = 'coup'
+        gameState.lastAction = 'coup'
         gameState.actionStack.append(self)
         return gameState
 
@@ -222,11 +222,11 @@ class Block(Action):
         gameState = state.deepCopy()
         gameState.playerBlock = self.playerBlock
         gameState.actionStack.append(self)
-        if gameState.currentAction == 'foreign aid':
+        if gameState.lastAction == 'foreign aid':
             gameState.players[gameState.playerTurn].possibleInfluences['duke'] += 1
-        elif gameState.currentAction == 'assassinate':
+        elif gameState.lastAction == 'assassinate':
             gameState.players[gameState.playerTurn].possibleInfluences['contessa'] += 1
-        elif gameState.currentAction == 'steal':
+        elif gameState.lastAction == 'steal':
             gameState.players[gameState.playerTurn].possibleInfluences['captain'] += 0.5
             gameState.players[gameState.playerTurn].possibleInfluences['ambassador'] += 0.5
         return gameState

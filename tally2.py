@@ -19,8 +19,7 @@ def count_digits(filename):
         return "The file was not found."
 
 
-# Replace 'your_file.txt' with the path to your text file
-filename = 'score-count-qlearning-qlearning-qlearning.txt'
+filename = input("Enter the name of the file: ")
 count_0, count_1, count_2 = count_digits(filename)
 
 print(f"Number of 0s: {count_0}")
@@ -42,7 +41,7 @@ else:
     plt.bar(digits, values, color=['blue', 'orange', 'green'])
     plt.xlabel('Agents')
     plt.ylabel('Win Percentage')
-    plt.title('Win Percentage with Q-Learning Agents')
+    plt.title('Win Percentage of Agents')
     plt.show()
 
     # Print counts
