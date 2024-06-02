@@ -29,6 +29,6 @@ class Game:
 
         # for weight-dependent agents, save the weights. For example, expectimax agents
         for agent in self.agents:
-            agent.saveWeights(self.state, winner)
+            agent.gameOver(self.state, winner)
 
         return winner

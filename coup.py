@@ -1,5 +1,5 @@
 from game import Game
-from agents import TDLearningAgent, ExpectimaxAgent, BogoAgent
+from agents import QLearningAgent, MinimaxAgent, BogoAgent
 import sys
 import collections
 import signal
@@ -35,10 +35,10 @@ def runMatchups(numGames: int):
     Runs the matchups between the different agents for a set number of games.
     """
     signal.signal(signal.SIGALRM, signal_handler)
-    algorithms = ['expectimax', 'random']
+    algorithms = ['qlearning', 'minimax', 'random']
     algorithms_to_agents = {
-        'qlearning': TDLearningAgent,
-        'expectimax': ExpectimaxAgent,
+        'qlearning': QLearningAgent,
+        'minimax': MinimaxAgent,
         'random': BogoAgent
     }
     agents_by_algorithm = {
@@ -50,10 +50,10 @@ def runMatchups(numGames: int):
         for algorithm2 in algorithms:
             for algorithm3 in algorithms:
                 agents = [agents_by_algorithm[0][algorithm1],
-                          agents_by_algorithm[1][algorithm2],
-                          agents_by_algorithm[2][algorithm3]]
+                        agents_by_algorithm[1][algorithm2],
+                        agents_by_algorithm[2][algorithm3]]
                 signal.alarm(10)
-                scores_file_path = f'scores/{algorithm1}-{algorithm2}-{algorithm3}.txt'
+                scores_file_path = f'{algorithm1}-{algorithm2}-{algorithm3}.txt'
                 with open(scores_file_path, 'a') as scores:
                     runGames(numGames=numGames, agents=agents, scores=scores)
 
@@ -63,6 +63,7 @@ def runGames(numGames: int = 100, agents: list = [], scores=None):
     Runs the games for a set number of games with a set of agents.
     Prints out the winning bot for each game and the final scores.
     """
+    numGames = 500
     wins = collections.Counter()
     for i in range(numGames):
         game = Game(agents)
