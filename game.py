@@ -1,41 +1,34 @@
-from util import *
 from gamestate import GameState
 
-
+"""
+Simple class to manage the control flow of the game.
+"""
 class Game:
-    """
-  The Game manages the control flow, soliciting actions from agents.
-  """
-
-    def __init__(self, agents=None):
-        if agents is None:
-            agents = []
+    def __init__(self, agents=[]):
         self.gameOver = False
         state = GameState(len(agents))
         self.state = state
         self.agents = agents
 
+    """
+    Main control loop for game play.
+    """
     def run(self):
-        """
-        Main control loop for game play.
-        """
-        print(self.state.detailedStr())
         while not self.state.isOver():
-            for player in self.state.playersCanAct:
+            for player in self.state.playersInAction:
                 action = self.agents[player].getAction(self.state)
-                if action is not None:
+                if action:
                     self.state = action.choose(self.state)
                     break
-            self.state = self.state.continueTurn()
+            self.state = self.state.continue_turn()
 
         for i in range(self.state.numPlayers):
             if len(self.state.players[i].influences) > 0:
                 winner = i
-                break
+                print("Game over! Player %d wins. Final state: \n" % i, self.state)
 
-        print("Game over! Player %d wins. Final state: \n" % winner, self.state)
-
+        # for weight-dependent agents, save the weights. For example, expectimax agents
         for agent in self.agents:
-            agent.gameOver(self.state, winner)
+            agent.saveWeights(self.state, winner)
 
         return winner

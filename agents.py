@@ -1,5 +1,5 @@
 from actions import *
-import util
+import influenceUtils
 import random
 import json
 
@@ -23,13 +23,12 @@ class Agent:
         NotImplementedError()
 
     def printAction(self, a, state):
-        print
-        "Agent %d takes %s%s: %s" % (self.index, state.nextAction, \
+        print("Agent %d decides to %s%s: %s" % (self.index, state.nextAction, \
                                      (' [--------BLUFF!!-------]' if str(a) in [str(act) for act in
                                                                                 state.bluffActions(
-                                                                                    self.index)] else ''), str(a))
+                                                                                    self.index)] else ''), str(a)))
 
-    def gameOver(self, state, winner):
+    def saveWeights(self, state, winner):
         pass
 
 
@@ -205,7 +204,7 @@ class ExpectimaxAgent(Agent):
         if d == 0:
             return self.evaluationFunction(s), None
         possibleActions = []
-        for player in s.playersCanAct:
+        for player in s.playersInAction:
             for action in self.getActions(player, s):
                 newStates = s.generateSuccessorStates(action, player)
                 for successorState in newStates:
@@ -245,14 +244,14 @@ class TDLearningAgent(ExpectimaxAgent):
         o['selfInfluences'] = len(state.players[self.index].influences)
         o['selfPunished'] = sum([1 for p in state.punishedPlayers if p == self.index])
         o['opponentsPunished'] = sum([1 for p in state.punishedPlayers if p != self.index])
-        o['selfBlocked'] = 1 if state.playerTurn == self.index and state.playerBlock is not None else 0
+        o['selfBlocked'] = 1 if state.playerTurn == self.index and state.playerBlocked is not None else 0
         o['selfChallenged'] = 1 if (
-                                               state.playerTurn == self.index and state.playerBlock is None and state.playerChallenge is not None) \
-                                   or (state.playerBlock == self.index and state.playerChallenge is not None) else 0
-        o['opponentBlocked'] = 1 if state.playerTurn != self.index and state.playerBlock is not None else 0
+                                           state.playerTurn == self.index and state.playerBlocked is None and state.playerChallenged is not None) \
+                                   or (state.playerBlocked == self.index and state.playerChallenged is not None) else 0
+        o['opponentBlocked'] = 1 if state.playerTurn != self.index and state.playerBlocked is not None else 0
         o['opponentChallenged'] = 1 if (
-                                                   state.playerTurn != self.index and state.playerBlock is None and state.playerChallenge is not None) \
-                                       or (state.playerBlock != self.index and state.playerChallenge is not None) else 0
+                                               state.playerTurn != self.index and state.playerBlocked is None and state.playerChallenged is not None) \
+                                       or (state.playerBlocked != self.index and state.playerChallenged is not None) else 0
         for p in range(state.numPlayers):
             if p != self.index:
                 o['opp%dCoins' % p] = state.players[p].coins
@@ -289,7 +288,7 @@ class TDLearningAgent(ExpectimaxAgent):
         self.printAction(a, state)
         return a
 
-    def gameOver(self, state, winner):
+    def saveWeights(self, state, winner):
         reward = 100 if winner == self.index else -100
         self.updateW(state, reward)
         outputFile = open('td-learning-data.dat', 'w')

@@ -1,275 +1,243 @@
-import util
+import influenceUtils as utils
 
 
 class Action:
-    def __init__(self):
-        pass
+    def __init__(self, action_type):
+        self.type = action_type
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        return gameState
+        return state.deepCopy()
 
     def resolve(self, state):
-        gameState = state.deepCopy()
-        return gameState
+        return state.deepCopy()
+
+    def __str__(self):
+        return self.type.capitalize()
 
 
 class Challenge(Action):
-
     def __init__(self, playerChallenge):
-        self.type = 'challenge'
+        super().__init__('challenge')
         self.playerChallenge = playerChallenge
 
     def choose(self, state):
         gameState = state.deepCopy()
         gameState.actionStack.append(self)
-        gameState.playerChallenge = self.playerChallenge
-        actionIsBlock = gameState.playerBlock is not None
-        lastPlayer = gameState.playerBlock if actionIsBlock else gameState.playerTurn
-        if not actionIsBlock:
-            influences = util.actionToInfluence[gameState.lastAction]  # Influence is a list
-            # want to see if playerTurn has that Influence
-            result = any([True for x in influences if x in gameState.players[gameState.playerTurn].influences])
-            self.punishedPlayer = self.playerChallenge if result else gameState.playerTurn
-            self.challengeSuccess = not result
-        else:
-            influences = util.blockToInfluence[gameState.lastAction]  # Influence is a list
-            # want to see if playerTurn has that Influence
-            result = any([True for x in influences if x in gameState.players[gameState.playerBlock].influences])
-            self.punishedPlayer = self.playerChallenge if result else gameState.playerBlock
-            self.challengeSuccess = not result
+        gameState.playerChallenged = self.playerChallenge
+        actionIsBlock = gameState.playerBlocked is not None
+
+        influences = utils.blockToInfluence[gameState.lastAction] if actionIsBlock else utils.actionToInfluence[
+            gameState.lastAction]
+        result = any(influence in gameState.players[
+            gameState.playerTurn if not actionIsBlock else gameState.playerBlocked].influences for influence in
+                     influences)
+
+        self.punishedPlayer = self.playerChallenge if result else (
+            gameState.playerTurn if not actionIsBlock else gameState.playerBlocked)
+        self.challengeSuccess = not result
+
         return gameState
 
     def resolve(self, state):
         gameState = state.deepCopy()
-        gameState.challengeSuccess = self.challengeSuccess
+        gameState.challengeSuccessful = self.challengeSuccess
         if self.challengeSuccess:
             gameState.actionStack.pop()
         gameState.punishedPlayers.append(self.punishedPlayer)
         return gameState
 
     def __str__(self):
-        return 'Challenge by  %r' % (self.playerChallenge)
+        return f'Challenged by {self.playerChallenge}'
 
 
 class Tax(Action):
-
     def __init__(self):
-        self.type = 'tax'
+        super().__init__('tax')
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        gameState.lastAction = 'tax'
+        gameState = super().choose(state)
+        gameState.lastAction = self.type
         gameState.actionStack.append(self)
         gameState.players[gameState.playerTurn].possibleInfluences['duke'] += 1
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
-        # Current player's coin amount += 3
+        gameState = super().resolve(state)
         gameState.players[gameState.playerTurn].coins += 3
         return gameState
 
-    def __str__(self):
-        return 'Tax'
-
 
 class Assassinate(Action):
-
     def __init__(self, target):
+        super().__init__('assassinate')
         self.target = target
-        self.type = 'assassinate'
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        gameState.lastAction = 'assassinate'
+        gameState = super().choose(state)
+        gameState.lastAction = self.type
         gameState.actionStack.append(self)
         gameState.players[gameState.playerTurn].possibleInfluences['assassin'] += 1
         gameState.players[gameState.playerTurn].coins -= 3
-        gameState.playerTarget = self.target
+        gameState.playerTargeted = self.target
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
+        gameState = super().resolve(state)
         gameState.punishedPlayers.append(self.target)
         return gameState
 
     def __str__(self):
-        return 'Assassination of: %r' % (self.target)
+        return f'Assassination Attempt on {self.target}'
 
 
 class Exchange(Action):
-
     def __init__(self):
-        self.type = 'exchange'
+        super().__init__('exchange')
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        gameState.lastAction = 'exchange'
+        gameState = super().choose(state)
+        gameState.lastAction = self.type
         gameState.actionStack.append(self)
         gameState.players[gameState.playerTurn].possibleInfluences['ambassador'] += 1
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
-        gameState.playerExchange = gameState.playerTurn
-        addCards = gameState.deck[0:2]
+        gameState = super().resolve(state)
+        gameState.playerExchanged = gameState.playerTurn
+        addCards = gameState.deck[:2]
         gameState.deck = gameState.deck[2:]
-        gameState.players[gameState.playerTurn].influences += addCards
-        gameState.punishedPlayers += [gameState.playerTurn, gameState.playerTurn]
+        gameState.players[gameState.playerTurn].influences.extend(addCards)
+        gameState.punishedPlayers.extend([gameState.playerTurn] * 2)
         return gameState
-
-    def __str__(self):
-        return 'Exchange'
 
 
 class Steal(Action):
-
     def __init__(self, target):
+        super().__init__('steal')
         self.target = target
-        self.type = 'steal'
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        gameState.lastAction = 'steal'
+        gameState = super().choose(state)
+        gameState.lastAction = self.type
         gameState.actionStack.append(self)
         gameState.players[gameState.playerTurn].possibleInfluences['captain'] += 1
-        gameState.playerTarget = self.target
+        gameState.playerTargeted = self.target
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
+        gameState = super().resolve(state)
         stolenCoins = min(gameState.players[self.target].coins, 2)
         gameState.players[self.target].coins -= stolenCoins
         gameState.players[gameState.playerTurn].coins += stolenCoins
         return gameState
 
     def __str__(self):
-        return 'Steal from: %r' % (self.target)
+        return f'Steal from {self.target}'
 
 
 class Income(Action):
-
     def __init__(self):
-        self.type = 'income'
+        super().__init__('income')
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        gameState.lastAction = 'income'
+        gameState = super().choose(state)
+        gameState.lastAction = self.type
         gameState.actionStack.append(self)
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
-        # Current player's coin amount += 1
+        gameState = super().resolve(state)
         gameState.players[gameState.playerTurn].coins += 1
         return gameState
 
-    def __str__(self):
-        return 'Income'
-
 
 class ForeignAid(Action):
-
     def __init__(self):
-        self.type = 'foreign aid'
+        super().__init__('foreign aid')
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        gameState.lastAction = 'foreign aid'
+        gameState = super().choose(state)
+        gameState.lastAction = self.type
         gameState.actionStack.append(self)
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
-        # Current player's coin amount += 2
+        gameState = super().resolve(state)
         gameState.players[gameState.playerTurn].coins += 2
         return gameState
 
-    def __str__(self):
-        return 'Foreign Aid'
-
 
 class Coup(Action):
-
     def __init__(self, target):
+        super().__init__('coup')
         self.target = target
-        self.type = 'coup'
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        gameState.lastAction = 'coup'
+        gameState = super().choose(state)
+        gameState.lastAction = self.type
         gameState.actionStack.append(self)
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
+        gameState = super().resolve(state)
         gameState.players[gameState.playerTurn].coins -= 7
         gameState.punishedPlayers.append(self.target)
         return gameState
 
     def __str__(self):
-        return 'Coup on: %r' % (self.target)
+        return f'Coup Attempt on {self.target}'
 
 
 class Block(Action):
-
     def __init__(self, playerBlock):
+        super().__init__('block')
         self.playerBlock = playerBlock
-        self.type = 'block'
 
     def choose(self, state):
-        gameState = state.deepCopy()
-        gameState.playerBlock = self.playerBlock
+        gameState = super().choose(state)
+        gameState.playerBlocked = self.playerBlock
         gameState.actionStack.append(self)
-        if gameState.lastAction == 'foreign aid':
-            gameState.players[gameState.playerTurn].possibleInfluences['duke'] += 1
-        elif gameState.lastAction == 'assassinate':
-            gameState.players[gameState.playerTurn].possibleInfluences['contessa'] += 1
-        elif gameState.lastAction == 'steal':
-            gameState.players[gameState.playerTurn].possibleInfluences['captain'] += 0.5
-            gameState.players[gameState.playerTurn].possibleInfluences['ambassador'] += 0.5
+
+        influences = utils.blockToInfluence.get(gameState.lastAction, [])
+        for influence in influences:
+            gameState.players[gameState.playerTurn].possibleInfluences[influence] += 1
+
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
-        gameState.playerBlock = None  # why?
-        if len(gameState.actionStack) > 0:
+        gameState = super().resolve(state)
+        if gameState.actionStack:
             gameState.actionStack.pop()
         return gameState
 
     def __str__(self):
-        return 'Block by: %r' % (self.playerBlock)
+        return f'Blocked by {self.playerBlock}'
 
 
 class Discard(Action):
-
     def __init__(self, player, influenceIndex):
+        super().__init__('discard')
         self.influenceIndex = influenceIndex
         self.player = player
-        self.type = 'discard'
 
     def choose(self, state):
-        gameState = state.deepCopy()
+        gameState = super().choose(state)
         gameState.actionStack.insert(0, self)
         return gameState
 
     def resolve(self, state):
-        gameState = state.deepCopy()
+        gameState = super().resolve(state)
         gameState.punishedPlayers.remove(self.player)
+
         influences = gameState.players[self.player].influences
-        if len(influences) == 0:
-            print('OOPS influences empty')
-            return gameState
-        if len(influences) <= self.influenceIndex:
-            print('OOPS influences out of range')
-            self.influenceIndex = len(influences) - 1
-        if self.player == gameState.playerExchange:
-            gameState.deck.append(influences[self.influenceIndex])
+        influence_to_remove = influences.pop(self.influenceIndex)
+
+        if self.player == gameState.playerExchanged:
+            gameState.deck.append(influence_to_remove)
         else:
-            gameState.inactiveInfluences[influences[self.influenceIndex]] += 1
-        del gameState.players[self.player].influences[self.influenceIndex]
+            gameState.inactiveInfluences[influence_to_remove] += 1
+
         return gameState
 
     def __str__(self):
-        return 'Discard by: %r [%d]' % (self.player, self.influenceIndex)
+        return f'Discard by {self.player} [{self.influenceIndex}]'
